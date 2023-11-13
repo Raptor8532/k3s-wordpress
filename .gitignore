@@ -1,0 +1,5 @@
+*.terraform
+*.terraform*
+*.qcow2
+*.img
+*.tfstate*
