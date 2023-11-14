@@ -12,61 +12,70 @@ terraform {
 }
 
 provider "kubernetes" {
-  config_path = "~/.kube/config"
+  config_path = "~/.kube/k3s_config"
 }
 
 provider "helm" {
   kubernetes {
-    config_path = "~/.kube/config"
+    config_path = "~/.kube/k3s_config"
   }
 }
 
 #-----------------------------------------
 # VARIABLES
 #-----------------------------------------
-
-variable "registry_url" {
-  description = "URL of your Docker registry (e.g., registry.example.com)"
-  type        = string
-  default     = "rg.fr-par.scw.cloud/smartfire-devops-tests"
-}
-
 variable "registry_secret_name" {
-  description = "Docker registry secret"
+  description = "Container registry secret"
   type        = string
   default     = "registry-secret"
 }
 
-variable "registry_password" {
-  description = "Docker registry password"
+variable "registry_server" {
+  description = "URL of your Container registry (e.g., registry.example.com)"
   type        = string
-  default     = "069107f9-a03c-44a4-8d40-8d3f98d8173e"
+  default     = "ghcr.io"
+}
+
+variable "registry_username" {
+  description = "Container registry password"
+  type        = string
+  default     = "Raptor8532"
+}
+
+variable "registry_password" {
+  description = "Container registry password"
+  type        = string
+  default     = "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"
 }
 
 data "template_file" "docker_config" {
   template = <<-EOT
-    {
-      "auths": {
-        "${var.registry_url}": {
-          "password": "${var.registry_password}"
-        }
-      }
+{
+  "auths": {
+    "${var.registry_server}": {
+      "username": "${var.registry_username}",
+      "password": "${var.registry_password}",
+      "auth": "${base64encode("${var.registry_username}:${var.registry_password}")}"
     }
-  EOT
+  }
+}
+EOT
 }
 
 #-----------------------------------------
 # KUBERNETES SECRETS
 #-----------------------------------------
 
-resource "kubernetes_secret" "docker_registry_secret" {
+resource "kubernetes_secret" "container_registry_secret" {
   metadata {
     name = var.registry_secret_name
   }
 
   data = {
-    ".dockerconfigjson" = data.template_file.docker_config.rendered
+    ".dockerconfigjson" = "${data.template_file.docker_config.rendered}"
   }
+
+  type = "kubernetes.io/dockerconfigjson"
 }
 
 #-----------------------------------------
@@ -74,12 +83,20 @@ resource "kubernetes_secret" "docker_registry_secret" {
 #-----------------------------------------
 
 resource "kubernetes_deployment" "php" {
+
   metadata {
     name = "php"
     labels = {
       app = "php"
     }
   }
+
+  timeouts {
+    create = "3m"
+    update = "2m"
+    delete = "2m"
+  }
+
   spec {
     replicas = 1
 
@@ -97,8 +114,8 @@ resource "kubernetes_deployment" "php" {
 
       spec {
         container {
-          image = "rg.fr-par.scw.cloud/smartfire-devops-tests/php:1.0"
-          name  = "wordpress"
+          image             = "ghcr.io/raptor8532/php_wordpress:latest"
+          name              = "wordpress"
           image_pull_policy = "Always"
 
           resources {
@@ -116,8 +133,6 @@ resource "kubernetes_deployment" "php" {
         image_pull_secrets {
           name = var.registry_secret_name
         }
-                
-
       }
     }
   }
@@ -150,7 +165,7 @@ resource "kubernetes_deployment" "mysql" {
           image = "mysql:5.7"
           name  = "mysql"
           env {
-            name = "MYSQL_ROOT_PASSWORD"
+            name  = "MYSQL_ROOT_PASSWORD"
             value = "root"
           }
         }
@@ -179,7 +194,7 @@ resource "kubernetes_service" "lb" {
       target_port = 80
     }
 
-    type = "LoadBalancer"
+    #type = "LoadBalancer"
   }
 }
 
