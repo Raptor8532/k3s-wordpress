@@ -39,13 +39,13 @@ variable "registry_server" {
 variable "registry_username" {
   description = "Container registry password"
   type        = string
-  default     = "Raptor8532"
+  sensitive = true
 }
 
 variable "registry_password" {
   description = "Container registry password"
   type        = string
-  default     = "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"
+  sensitive = true
 }
 
 data "template_file" "docker_config" {
@@ -128,10 +128,19 @@ resource "kubernetes_deployment" "php" {
               memory = "50Mi"
             }
           }
-
+          volume_mount {
+          name      = "uploads-volume"
+          mount_path = "/var/www/html/wp-content/uploads" # Path inside pod
+          }
         }
         image_pull_secrets {
           name = var.registry_secret_name
+        }
+        volume {
+        name = "uploads-volume"
+        persistent_volume_claim {
+          claim_name = kubernetes_persistent_volume_claim.wp_content_uploads_claim.metadata[0].name
+          }
         }
       }
     }
@@ -180,27 +189,9 @@ resource "kubernetes_deployment" "mysql" {
 # KUBERNETES DEPLOYMENT SERVICE
 #-------------------------------------------------
 
-resource "kubernetes_service" "lb" {
-  metadata {
-    name = "load-balancer"
-  }
-  spec {
-    selector = {
-      app = "php"
-    }
-    session_affinity = "ClientIP"
-    port {
-      port        = 80
-      target_port = 80
-    }
-
-    #type = "LoadBalancer"
-  }
-}
-
 resource "kubernetes_service" "node_port" {
   metadata {
-    name = "node-port"
+    name = "node-port-php"
   }
 
   spec {
@@ -220,7 +211,7 @@ resource "kubernetes_service" "node_port" {
 
 resource "kubernetes_service" "cluster_ip_mysql" {
   metadata {
-    name = "cluster-ip-mysql"
+    name = "service-mysql"
   }
 
   spec {
@@ -236,17 +227,51 @@ resource "kubernetes_service" "cluster_ip_mysql" {
   }
 }
 
+#-----------------------------------------
+# KUBERNETES PERSISTENT VOLUME (PV)
+#-----------------------------------------
+resource "kubernetes_persistent_volume" "wp_content_uploads" {
+  metadata {
+    name = "wp-content-uploads-pv"
+  }
+  spec {
+    storage_class_name = "default"
+    capacity = {
+      storage = "200Mi" # Taille du volume
+    }
+    access_modes = ["ReadWriteMany"]
+    persistent_volume_source {
+      host_path {
+        path = "/home/ubuntu/wp-content/uploads" # Chemin sur le nœud hôte
+      }
+    }
+  }
+}
+
+#-----------------------------------------
+# KUBERNETES PERSISTENT VOLUME CLAIM (PVC)
+#-----------------------------------------
+
+resource "kubernetes_persistent_volume_claim" "wp_content_uploads_claim" {
+  metadata {
+    name = "wp-content-uploads-pvc"
+  }
+
+  spec {
+    access_modes = ["ReadWriteMany"]
+    storage_class_name = "default"
+    resources {
+      requests = {
+        storage = "200Mi" # Taille du volume correspondant à celle du PV
+      }
+    }
+  }
+}
+
+
 #-------------------------------------------------
 # KUBERNETES INGRESS
 #-------------------------------------------------
-
-
-
-#-------------------------------------------------
-# KUBERNETES PVC
-#-------------------------------------------------
-
-
 
 #-------------------------------------------------
 # KUBERNETES CONFIG MAPS
