@@ -135,7 +135,7 @@ resource "kubernetes_deployment" "php" {
           volume_mount {
             name       = "wp-config"
             mount_path = "/var/www/html/wp-config.php"
-            sub_path = "wp-config.php"
+            sub_path   = "wp-config.php"
             read_only  = true
           }
         }
@@ -204,6 +204,16 @@ resource "kubernetes_deployment" "mysql" {
           env {
             name  = "MYSQL_DATABASE"
             value = "wordpress"
+          }
+          volume_mount {
+            name       = "mysql-db"
+            mount_path = "/var/lib/mysql" # Path inside pod
+          }
+        }
+        volume {
+          name = "mysql-db"
+          persistent_volume_claim {
+            claim_name = kubernetes_persistent_volume_claim.mysql_claim.metadata[0].name
           }
         }
       }
@@ -276,6 +286,23 @@ resource "kubernetes_persistent_volume" "wp_content_uploads" {
   }
 }
 
+resource "kubernetes_persistent_volume" "mysql-pv" {
+  metadata {
+    name = "mysql-pv"
+  }
+  spec {
+    storage_class_name = "default"
+    capacity = {
+      storage = "200Mi" # Taille du volume
+    }
+    access_modes = ["ReadWriteMany"]
+    persistent_volume_source {
+      host_path {
+        path = "/home/ubuntu/mysql" # Chemin sur le nœud hôte
+      }
+    }
+  }
+}
 #-----------------------------------------
 # KUBERNETES PERSISTENT VOLUME CLAIM (PVC)
 #-----------------------------------------
@@ -283,6 +310,22 @@ resource "kubernetes_persistent_volume" "wp_content_uploads" {
 resource "kubernetes_persistent_volume_claim" "wp_content_uploads_claim" {
   metadata {
     name = "wp-content-uploads-pvc"
+  }
+
+  spec {
+    access_modes       = ["ReadWriteMany"]
+    storage_class_name = "default"
+    resources {
+      requests = {
+        storage = "200Mi" # Taille du volume correspondant à celle du PV
+      }
+    }
+  }
+}
+
+resource "kubernetes_persistent_volume_claim" "mysql_claim" {
+  metadata {
+    name = "mysql-pvc"
   }
 
   spec {
