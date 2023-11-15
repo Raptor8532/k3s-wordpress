@@ -39,13 +39,13 @@ variable "registry_server" {
 variable "registry_username" {
   description = "Container registry password"
   type        = string
-  sensitive = true
+  sensitive   = true
 }
 
 variable "registry_password" {
   description = "Container registry password"
   type        = string
-  sensitive = true
+  sensitive   = true
 }
 
 data "template_file" "docker_config" {
@@ -129,17 +129,29 @@ resource "kubernetes_deployment" "php" {
             }
           }
           volume_mount {
-          name      = "uploads-volume"
-          mount_path = "/var/www/html/wp-content/uploads" # Path inside pod
+            name       = "uploads-volume"
+            mount_path = "/var/www/html/wp-content/uploads" # Path inside pod
+          }
+          volume_mount {
+            name       = "wp-config"
+            mount_path = "/var/www/html/wp-config.php"
+            sub_path = "wp-config.php"
+            read_only  = true
           }
         }
         image_pull_secrets {
           name = var.registry_secret_name
         }
         volume {
-        name = "uploads-volume"
-        persistent_volume_claim {
-          claim_name = kubernetes_persistent_volume_claim.wp_content_uploads_claim.metadata[0].name
+          name = "uploads-volume"
+          persistent_volume_claim {
+            claim_name = kubernetes_persistent_volume_claim.wp_content_uploads_claim.metadata[0].name
+          }
+        }
+        volume {
+          name = "wp-config"
+          config_map {
+            name = "wp-config"
           }
         }
       }
@@ -177,6 +189,22 @@ resource "kubernetes_deployment" "mysql" {
             name  = "MYSQL_ROOT_PASSWORD"
             value = "root"
           }
+          env {
+            name  = "MYSQL_USER"
+            value = "wordpress"
+          }
+          env {
+            name  = "MYSQL_PASSWORD"
+            value = "wordpress"
+          }
+          env {
+            name  = "MYSQL_ALLOW_EMPTY_PASSWORD"
+            value = "yes"
+          }
+          env {
+            name  = "MYSQL_DATABASE"
+            value = "wordpress"
+          }
         }
       }
     }
@@ -211,7 +239,7 @@ resource "kubernetes_service" "node_port" {
 
 resource "kubernetes_service" "cluster_ip_mysql" {
   metadata {
-    name = "service-mysql"
+    name = "svc-mysql"
   }
 
   spec {
@@ -258,7 +286,7 @@ resource "kubernetes_persistent_volume_claim" "wp_content_uploads_claim" {
   }
 
   spec {
-    access_modes = ["ReadWriteMany"]
+    access_modes       = ["ReadWriteMany"]
     storage_class_name = "default"
     resources {
       requests = {
@@ -268,13 +296,17 @@ resource "kubernetes_persistent_volume_claim" "wp_content_uploads_claim" {
   }
 }
 
-
-#-------------------------------------------------
-# KUBERNETES INGRESS
-#-------------------------------------------------
-
 #-------------------------------------------------
 # KUBERNETES CONFIG MAPS
 #-------------------------------------------------
 
+resource "kubernetes_config_map" "wp_config" {
+  metadata {
+    name = "wp-config"
+  }
+
+  data = {
+    "wp-config.php" = "${file("wp-config.php")}"
+  }
+}
 
