@@ -221,6 +221,38 @@ resource "kubernetes_deployment" "mysql" {
   }
 }
 
+resource "kubernetes_deployment" "phpmyadmin" {
+  metadata {
+    name = "phpmyadmin"
+    labels = {
+      app = "phpmyadmin"
+    }
+  }
+  spec {
+    replicas = 1
+
+    selector {
+      match_labels = {
+        app = "phpmyadmin"
+      }
+    }
+    template {
+      metadata {
+        labels = {
+          app = "phpmyadmin"
+        }
+      }
+
+      spec {
+        container {
+          image = "phpmyadmin/phpmyadmin:latest"
+          name  = "phpmyadmin"
+        }
+      }
+    }
+  }
+}
+
 
 
 #-------------------------------------------------
@@ -235,6 +267,25 @@ resource "kubernetes_service" "node_port" {
   spec {
     selector = {
       app = "php"
+    }
+
+    port {
+      port        = 80
+      target_port = 80
+    }
+
+    type = "NodePort" # Set the service type to NodePort
+  }
+}
+
+resource "kubernetes_service" "node_port_phpmyadmin" {
+  metadata {
+    name = "node-port-phpmyadmin"
+  }
+
+  spec {
+    selector = {
+      app = "phpmyadmin"
     }
 
     port {
