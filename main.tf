@@ -78,6 +78,19 @@ resource "kubernetes_secret" "container_registry_secret" {
   type = "kubernetes.io/dockerconfigjson"
 }
 
+resource "kubernetes_secret" "my_tls_secret" {
+  metadata {
+    name = "my-tls-secret"
+  }
+
+  data = {
+    "tls.crt" = "${filebase64("ca.crt")}"
+    "tls.key" = "${filebase64("ca.key")}"
+  }
+
+  type = "kubernetes.io/tls"
+}
+
 #-----------------------------------------
 # KUBERNETES DEPLOYMENT APP
 #-----------------------------------------
