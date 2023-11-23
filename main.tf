@@ -84,8 +84,8 @@ resource "kubernetes_secret" "my_tls_secret" {
   }
 
   data = {
-    "tls.crt" = "${filebase64("ca.crt")}"
-    "tls.key" = "${filebase64("ca.key")}"
+    "tls.crt" = "${file("ca.crt")}"
+    "tls.key" = "${file("ca.key")}"
   }
 
   type = "kubernetes.io/tls"
