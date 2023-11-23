@@ -247,6 +247,18 @@ resource "kubernetes_deployment" "phpmyadmin" {
         container {
           image = "phpmyadmin/phpmyadmin:latest"
           name  = "phpmyadmin"
+          env {
+            name  = "PMA_HOST"
+            value = "svc-mysql:3306"
+          }
+          env {
+            name  = "PMA_PASSWORD"
+            value = "wordpress"
+          }
+          env {
+            name  = "PMA_USER"
+            value = "wordpress"
+          }
         }
       }
     }
