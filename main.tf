@@ -341,6 +341,24 @@ resource "kubernetes_service" "cluster_ip_mysql" {
   }
 }
 
+resource "kubernetes_service" "cluster_ip_php" {
+  metadata {
+    name = "svc-php"
+  }
+
+  spec {
+    selector = {
+      app = "php"
+    }
+
+    port {
+      port        = 8080
+      target_port = 80
+    }
+
+  }
+}
+
 #-----------------------------------------
 # KUBERNETES PERSISTENT VOLUME (PV)
 #-----------------------------------------
@@ -429,3 +447,37 @@ resource "kubernetes_config_map" "wp_config" {
   }
 }
 
+#-------------------------------------------------
+# KUBERNETES INGRESS
+#-------------------------------------------------
+
+resource "kubernetes_ingress_v1" "php_ingress" {
+  metadata {
+    name = "php-ingress"
+  }
+
+  spec {
+    rule {
+      host = "mysite.com"
+      http {
+        path {
+          path = "/"
+
+          backend {
+            service {
+              name = "svc-php"
+              port {
+                number = 8080
+                  }
+                }
+              }
+            }
+          }
+        }
+
+        tls {
+         secret_name = "my-tls-secret"
+          hosts = ["mysite.com"]
+        }
+    }
+}
