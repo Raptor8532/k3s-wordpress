@@ -2,6 +2,15 @@
 # PROVIDERS
 #-----------------------------------------
 terraform {
+
+  cloud { 
+    organization = "pirjantzpro" 
+    
+    workspaces { 
+      name = "example-workspace"
+    } 
+  } 
+
   required_providers {
     kubernetes = {
       source  = "hashicorp/kubernetes"
@@ -20,7 +29,6 @@ provider "helm" {
     config_path = "~/.kube/k3s_config"
   }
 }
-
 #-----------------------------------------
 # VARIABLES
 #-----------------------------------------
